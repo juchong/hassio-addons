@@ -111,7 +111,7 @@ active_ip=$(jq <<< "$dns_record_response" -r ".result[].content")
 echo "Current CloudFlare IP: $active_ip"
 
 # Only update IP if they don't match
-if [[ "$ip" = "$active_ip" ]]; then
+if [[ "$ip" == "$active_ip" ]]; then
     echo "Current IP and CloudFlare IP match."
     exit 0
 fi
