@@ -31,10 +31,6 @@ if [[ $TTL != 1 ]] && [[ $TTL -lt 120 || $TTL -gt 2147483647 ]]; then
     exit 1
 fi
 
-
-while true  
-do
-
 echo "Current time: $(date "+%Y-%m-%d %H:%M:%S")"
 if [[ -z $IPV6 ]]; then
     ip_curl="curl -4s"
@@ -114,7 +110,11 @@ fi
 active_ip=$(jq <<< "$zone_response" -r ".result[0].content")
 
 # Only update IP if they don't match
-if [[ ip != active_ip ]]; then
+if [[ ip == active_ip ]]; then
+    echo "Current IP and CloudFlare IP match."
+    exit 0
+fi
+
 # DNS record to add or update
 read -r -d '' new_dns_record <<EOF
 {
@@ -167,17 +167,10 @@ if [[  $(jq <<<"$dns_record_response" -r '.success') = "true" ]]; then
     # Records the IP set set if successful
     echo "IP changed to: $ip"
     echo "$ip" > $ip_file
+    exit 0
 else
     # Prints out error messages if unsuccessful
     messages=$(jq <<<"$dns_record_response" -r '[.errors[] | .error.message] |join(" - ")')
     echo >&2 "Error: $messages"
     exit 1
 fi
-
-else
-    echo "Current IP and CloudFlare IP match."
-fi
-
-
-sleep 300  
-done
