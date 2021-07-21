@@ -115,65 +115,64 @@ active_ip=$(jq <<< "$zone_response" -r ".result[0].content")
 
 # Only update IP if they don't match
 if [[ ip != active_ip ]]; then
-    
 # DNS record to add or update
-    read -r -d '' new_dns_record <<EOF
-    {
-        "type": "$record_type",
-        "name": "$HOST",
-        "content": "$ip",
-        "ttl": $TTL,
-        "priority": 10,
-        "proxied": $PROXY
-    }
-    EOF
+read -r -d '' new_dns_record <<EOF
+{
+    "type": "$record_type",
+    "name": "$HOST",
+    "content": "$ip",
+    "ttl": $TTL,
+    "priority": 10,
+    "proxied": $PROXY
+}
+EOF
 
-    # Adds or updates the record
-    dns_record_id=$(jq <<<"$dns_record_response" -r ".result[] | select(.type ==\"$record_type\") |.id")
-    if [[ -z $dns_record_id ]]; then
+# Adds or updates the record
+dns_record_id=$(jq <<<"$dns_record_response" -r ".result[] | select(.type ==\"$record_type\") |.id")
+if [[ -z $dns_record_id ]]; then
 
-        # Makes sure we don't have a CNAME by the same name first
-        cname_dns_record=$(jq <<<"$dns_record_response" -r '.result[] | select(.type =="CNAME")')
-        if [[ -n $(jq <<<"$cname_dns_record" -r '.id') ]]; then
-            dns_record_content=$(jq <<<"$cname_dns_record" -r '.content')
-            echo >&2 "Error: CNAME entry found for $HOST. Remove it or set HOST=$dns_record_content instead."
-            exit 1
-        fi
-
-        # If not asked to create a record, stops
-        if [[ -z $FORCE_CREATE ]]; then
-            echo >&2 "Error: No existing record. Set FORCE_CREATE to any value to force its creation."
-            exit 1
-        fi
-
-        # Creates a new record
-        echo "Creating new record for host $HOST"
-
-        dns_record_response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                --data "$new_dns_record")
-    else
-
-        # If a record is found, updates the existing record
-        echo "Updating record $dns_record_id for host $HOST"
-
-        dns_record_response=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$dns_record_id" \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                --data "$new_dns_record")
-    fi
-
-    if [[  $(jq <<<"$dns_record_response" -r '.success') = "true" ]]; then
-        # Records the IP set set if successful
-        echo "IP changed to: $ip"
-        echo "$ip" > $ip_file
-    else
-        # Prints out error messages if unsuccessful
-        messages=$(jq <<<"$dns_record_response" -r '[.errors[] | .error.message] |join(" - ")')
-        echo >&2 "Error: $messages"
+    # Makes sure we don't have a CNAME by the same name first
+    cname_dns_record=$(jq <<<"$dns_record_response" -r '.result[] | select(.type =="CNAME")')
+    if [[ -n $(jq <<<"$cname_dns_record" -r '.id') ]]; then
+        dns_record_content=$(jq <<<"$cname_dns_record" -r '.content')
+        echo >&2 "Error: CNAME entry found for $HOST. Remove it or set HOST=$dns_record_content instead."
         exit 1
     fi
+
+    # If not asked to create a record, stops
+    if [[ -z $FORCE_CREATE ]]; then
+        echo >&2 "Error: No existing record. Set FORCE_CREATE to any value to force its creation."
+        exit 1
+    fi
+
+    # Creates a new record
+    echo "Creating new record for host $HOST"
+
+    dns_record_response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$new_dns_record")
+else
+
+    # If a record is found, updates the existing record
+    echo "Updating record $dns_record_id for host $HOST"
+
+    dns_record_response=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$dns_record_id" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$new_dns_record")
+fi
+
+if [[  $(jq <<<"$dns_record_response" -r '.success') = "true" ]]; then
+    # Records the IP set set if successful
+    echo "IP changed to: $ip"
+    echo "$ip" > $ip_file
+else
+    # Prints out error messages if unsuccessful
+    messages=$(jq <<<"$dns_record_response" -r '[.errors[] | .error.message] |join(" - ")')
+    echo >&2 "Error: $messages"
+    exit 1
+fi
 
 else
     echo "Current IP and CloudFlare IP match."
