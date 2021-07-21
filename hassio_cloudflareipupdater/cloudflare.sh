@@ -9,7 +9,7 @@ PROXY=$(jq --raw-output ".proxy" $CONFIG_PATH)
 TTL=$(jq --raw-output ".ttl" $CONFIG_PATH)
 
 # Enforces required env variables
-required_vars=(ZONE HOST EMAIL TOKEN PROXY TTL)
+required_vars=(ZONE HOST TOKEN PROXY TTL)
 for required_var in "${required_vars[@]}"; do
     if [[ -z ${!required_var} ]]; then
         error=1
