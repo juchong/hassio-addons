@@ -108,6 +108,7 @@ fi
 
 # Fetches the current IP
 active_ip=$(jq <<< "$zone_response" -r ".result[0].content")
+echo "DEBUG: $active_ip"
 
 # Only update IP if they don't match
 if [[ ip == active_ip ]]; then
@@ -166,7 +167,6 @@ fi
 if [[  $(jq <<<"$dns_record_response" -r '.success') = "true" ]]; then
     # Records the IP set set if successful
     echo "IP changed to: $ip"
-    echo "$ip" > $ip_file
     exit 0
 else
     # Prints out error messages if unsuccessful
